@@ -38,3 +38,15 @@ class Petition(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     def __str__(self):
         return f"{self.id} - {self.movie_name}"
+    
+class Rating(models.Model):
+    id = models.AutoField(primary_key=True)
+    movie = models.ForeignKey('Movie', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    value = models.IntegerField(default = 1)
+
+    class Meta:
+        unique_together = ('movie', 'user')
+        
+    def __str__(self):
+        return f"{self.movie.name} - {self.user.username}: {self.value}"

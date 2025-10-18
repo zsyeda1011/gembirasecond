@@ -13,5 +13,6 @@ urlpatterns = [
     views.delete_review, name='movies.delete_review'),
 path('petitions/', views.petitions_index, name='petitions.index'),
 path("petitions/create/", views.petition_create, name="create_petitions"),
-    path("petitions/<int:id>/vote/", views.petition_vote, name="petitions.vote"),
+path("petitions/<int:id>/vote/", views.petition_vote, name="petitions.vote"),
+path ('<int:id>/rate/', views.rate_movie, name='movies.rate_movie'),
 ]

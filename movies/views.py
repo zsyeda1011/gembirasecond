@@ -3,6 +3,9 @@ from .models import Movie, Review
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from .models import Petition
+from .models import Movie, Review, Petition, Rating
+from django.db import models
+
 
 def petitions_index(request):
     petitions = Petition.objects.all()
@@ -100,3 +103,34 @@ def delete_review(request, id, review_id):
      user=request.user)
  review.delete()
  return redirect('movies.show', id=id)
+
+@login_required
+def rate_movie(request, id):
+   movie = get_object_or_404(Movie, id=id)
+   if request.method == 'POST':
+      value = int(request.POST.get('rating', 0))
+      if 1 <= value <= 5:
+         rating, created = Rating.objects.update_or_create(
+            movie=movie, user=request.user,
+            defaults={'value': value}
+         )
+   return redirect('movies.show', id=movie.id)
+
+def show(request, id):
+     movie = Movie.objects.get(id=id)
+     reviews = Review.objects.filter(movie=movie)
+     ratings = Rating.objects.filter(movie=movie)
+     
+     avg_rating = ratings.aggregate(models.Avg('value'))['value__avg'] or 0
+     user_rating = None
+     if request.user.is_authenticated:
+        user_rating = Rating.objects.filter(movie=movie, user=request.user).first()
+
+     template_data = {
+        'title': movie.name,
+        'movie': movie,
+        'reviews': reviews,
+        'avg_rating': round(avg_rating, 1),
+        'user_rating': user_rating,
+    }   
+     return render(request, 'movies/show.html', {'template_data': template_data})
