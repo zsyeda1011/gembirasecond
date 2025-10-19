@@ -3,11 +3,6 @@ from . import views
 
 urlpatterns = [
  path('', views.index, name='movies.index'),
-<<<<<<< HEAD
- path('map/', views.map_view, name='movies.map'),
- path('locations-geojson/', views.locations_geojson, name='movies.locations_geojson'),
-=======
->>>>>>> dce5c916be57856df10ba24c833e7a7aec8c3f38
  path('<int:id>/', views.show, name='movies.show'),
  path('<int:id>/purchase/', views.purchase_movie, name='movies.purchase_movie'),
  path('<int:id>/review/create/', views.create_review,

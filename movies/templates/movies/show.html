@@ -13,21 +13,22 @@
 {% if template_data.movie %}
   {% with ratings=template_data.movie.rating_set.all %}
     {% if ratings %}
-      {% with avg=ratings|length %}
-        <p><b>Average Rating:</b> 
-  {% if template_data.avg_rating %}
-    {{ template_data.avg_rating }} / 5
-  {% else %}
-    No ratings yet
-  {% endif %}
-</p>
-{% if template_data.user_rating %}
-  <p>Your rating: {{ template_data.user_rating.value }} / 5</p>
-{% endif %}
-{% endwith %}
+      <p><b>Average Rating:</b>
+        {% if template_data.avg_rating %}
+          {{ template_data.avg_rating }} / 5
+        {% else %}
+          No ratings yet
+        {% endif %}
+      </p>
+      {% if template_data.user_rating %}
+        <p>Your rating: {{ template_data.user_rating.value }} / 5</p>
+      {% endif %}
+    {% else %}
+      <p><b>Average Rating:</b> No ratings yet</p>
     {% endif %}
   {% endwith %}
 {% endif %}
+
 
 {% if user.is_authenticated %}
   <form method="POST" action="{% url 'movies.rate_movie' id=template_data.movie.id %}">
