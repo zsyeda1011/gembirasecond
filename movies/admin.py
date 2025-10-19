@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Movie, Review
+from .models import Movie, Review, Petition, Rating, MovieLocation
 
 class MovieAdmin(admin.ModelAdmin):
  ordering = ['name']
@@ -17,3 +17,6 @@ def get_readonly_fields(self, request, obj=None):
 
 admin.site.register(Movie, MovieAdmin)
 admin.site.register(Review)
+admin.site.register(Petition)
+admin.site.register(Rating)
+admin.site.register(MovieLocation)

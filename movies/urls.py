@@ -15,4 +15,8 @@ path('petitions/', views.petitions_index, name='petitions.index'),
 path("petitions/create/", views.petition_create, name="create_petitions"),
 path("petitions/<int:id>/vote/", views.petition_vote, name="petitions.vote"),
 path ('<int:id>/rate/', views.rate_movie, name='movies.rate_movie'),
+path('map/', views.map_view, name='movies.map'),
+path('locations-geojson/', views.locations_geojson, name='movies.locations_geojson'),
+path("region/<int:region_id>/top/", views.region_top, name="movies.region_top"),
+path('my-purchases/', views.my_purchases, name='movies.my_purchases'),
 ]

@@ -1,78 +1,159 @@
-{% extends 'base.html' %}
 
+{% extends 'base.html' %}
+{% load static %}
 {% block content %}
-  <h1>Trending Movies in the United States</h1>
-  <div style="display: flex; gap: 2rem;">
-    <div id="sidebar" style="width: 350px; min-width: 250px; background: #f8f9fa; border-radius: 8px; padding: 1rem; box-shadow: 0 0 8px #ccc; height: 600px; overflow-y: auto;">
-      <h4>Top Trending Movies by Region</h4>
-      <div id="region-list">Loading...</div>
-    </div>
-    <div style="flex: 1;">
-      <div id="map" style="height: 600px; background: #eee;">If you see this text, the map is not loading.</div>
-    </div>
-  </div>
-  <noscript><p style="color:red">JavaScript is required to view the map.</p></noscript>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      const mapDiv = document.getElementById('map');
-      if (!mapDiv) return;
-      if (typeof L === 'undefined') {
-        mapDiv.innerHTML = '<span style="color:red">Leaflet library failed to load. Check your internet connection or browser console for errors.</span>';
+<h2 class="text-center mt-3">Local Popularity Map</h2>
+<hr>
+
+<div style="display:flex; gap:1rem;">
+  <div id="map" style="height: 600px; width: 70%;"></div>
+
+  <aside id="region-info" style="width:30%; max-height:600px; overflow:auto; padding:1rem; border:1px solid #ddd;">
+    <h3 id="region-title">Select a region</h3>
+    <ul id="region-top-list"></ul>
+     <hr />
+    <h4>My recent purchases</h4>
+    <ul id="my-purchases-list"></ul>
+  </aside>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var map = L.map("map").setView([37.8, -96], 4);
+  window.map = map;
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 12, attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+
+  var aside = document.getElementById('region-info');
+  aside.innerHTML = '<h3 id="region-title">Select a region</h3><ul id="region-top-list"></ul>';
+
+  fetch("{% url 'movies.locations_geojson' %}", { credentials: 'same-origin' })
+    .then(function (res) {
+      if (!res.ok) throw new Error('locations-geojson network response not ok: ' + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      var features = data.features || [];
+      if (!features.length) {
+        document.getElementById('region-title').textContent = "No trending locations yet.";
         return;
       }
-      // Center on US
-      const map = L.map('map').setView([37.8, -96], 4);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
 
-      fetch('{% url "movies.locations_geojson" %}')
-        .then(r => r.json())
-        .then(data => {
-          // Markers styled by purchase_count
-          const markers = L.geoJSON(data.features, {
-            pointToLayer: function(feature, latlng) {
-              const count = feature.properties.purchase_count || 1;
-              const color = count > 20 ? 'red' : count > 10 ? 'orange' : 'blue';
-              const radius = Math.max(8, Math.min(32, count * 2));
-              return L.circleMarker(latlng, {
-                radius: radius,
-                fillColor: color,
-                color: '#333',
-                weight: 1,
-                opacity: 1,
-                fillOpacity: 0.7
-              });
-            },
-            onEachFeature: function(feature, layer) {
-              const p = feature.properties;
-              layer.bindPopup(`<strong>${p.movie_name}</strong><br>${p.name || p.place || ''}<br>Purchases: ${p.purchase_count}<br>Trend: ${p.trend_score}`);
-            }
-          }).addTo(map);
-          if (markers.getBounds().isValid()) {
-            map.fitBounds(markers.getBounds());
+      window.topMoviesByRegion = data.top_movies_by_region || {};
+
+      var bounds = [];
+      features.forEach(function (f) {
+        var coords = f.geometry && f.geometry.coordinates;
+        if (!coords) return;
+        var lng = coords[0], lat = coords[1];
+        var p = f.properties || {};
+        var movieName = p.movie || p.movie_name || "(unknown)";
+        // Use purchase_count as the canonical metric for display
+        var purchaseCount = (p.purchase_count != null) ? p.purchase_count : 0;
+        var radius = Math.max(6, Math.sqrt(Math.max(0, purchaseCount)) * 2);
+
+        var circle = L.circleMarker([lat, lng], {
+          radius: radius,
+          color: "#ff5722",
+          fillColor: "#ff8a50",
+          fillOpacity: 0.8
+        }).addTo(map);
+
+        circle.bindPopup("<b>" + movieName + "</b><br>" + (p.place || p.name || "") + "<br>Purchases: " + purchaseCount);
+
+        // single click handler: prefer server-side top list by id, fallback to local data
+        circle.on('click', function () {
+          var regionName = p.place || p.name || movieName;
+          if (p.id) {
+            fetchRegionTopById(p.id, regionName);
+          } else {
+            showRegionTopMovies(regionName);
           }
-          // Sidebar: top movies by region
-          const regionList = document.getElementById('region-list');
-          const top = data.top_movies_by_region;
-          let html = '';
-          for (const region in top) {
-            html += `<div style='margin-bottom:1em'><b>${region}</b><ul>`;
-            for (const entry of top[region]) {
-              html += `<li>${entry.movie} <span style='color:#888'>(Purchases: ${entry.purchase_count})</span></li>`;
-            }
-            html += '</ul></div>';
-          }
-          regionList.innerHTML = html || '<i>No trending data available.</i>';
-        })
-        .catch(err => {
-          mapDiv.innerHTML = '<span style="color:red">Failed to load movie locations.</span>';
-          document.getElementById('region-list').innerHTML = '<span style="color:red">Failed to load trending data.</span>';
-          console.error('Failed to load locations:', err);
         });
+
+        bounds.push([lat, lng]);
+      });
+
+      if (bounds.length) {
+        map.fitBounds(bounds);
+      }
+
+      function clearTopList() {
+        var list = document.getElementById('region-top-list');
+        list.innerHTML = '';
+        return list;
+      }
+
+      function fetchRegionTopById(regionId, regionName) {
+        document.getElementById('region-title').textContent = "Top movies in: " + (regionName || regionId);
+        var list = clearTopList();
+
+        fetch("/movies/region/" + encodeURIComponent(regionId) + "/top/", { credentials: 'same-origin' })
+          .then(function (res) {
+            if (!res.ok) throw new Error('region top fetch failed: ' + res.status);
+            return res.json();
+          })
+          .then(function (items) {
+            if (!items || !items.length) {
+              var li = document.createElement('li');
+              li.textContent = 'No top movies found.';
+              list.appendChild(li);
+              return;
+            }
+            items.forEach(function (item) {
+              var li = document.createElement('li');
+              li.textContent = (item.title || item.movie || "(unknown)") + " — " + (item.count || item.purchase_count || 0);
+              list.appendChild(li);
+            });
+          })
+          .then(function (data) {
+            // view returns { top: [...] } — normalize to an array
+            var items = [];
+            if (Array.isArray(data)) items = data;
+            else if (Array.isArray(data.top)) items = data.top;
+
+            if (!items.length) {
+             var li = document.createElement('li');
+              li.textContent = 'No top movies found.';
+              list.appendChild(li);
+              return;
+            }
+            items.forEach(function (item) {
+              var li = document.createElement('li');
+              li.textContent = (item.title || item.movie || "(unknown)") + " — " + (item.count || item.purchase_count || 0);
+              list.appendChild(li);
+            });
+          })
+           .catch(function (err) {
+             console.error("region top error", err);
+             showRegionTopMovies(regionName);
+           });
+      }
+
+function showRegionTopMovies(regionName) {
+        document.getElementById('region-title').textContent = "Top movies in: " + (regionName || "(unknown)");
+        var list = clearTopList();
+        var items = (window.topMoviesByRegion && window.topMoviesByRegion[regionName]) || [];
+        if (!items.length) {
+          var li = document.createElement('li');
+          li.textContent = 'No top movies available.';
+          list.appendChild(li);
+          return;
+        }
+        items.forEach(function (item) {
+          var li = document.createElement('li');
+          li.textContent = (item.title || item.movie || "(unknown)") + " — " + (item.count || item.purchase_count || 0);
+          list.appendChild(li);
+        });
+      }
+    })
+    .catch(function (err) {
+      console.error("locations-geojson error", err);
     });
-  </script>
+});
+</script>
+
 {% endblock %}
