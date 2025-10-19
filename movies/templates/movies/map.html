@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>Trending Movies in the United States</h1>
+  <div style="display: flex; gap: 2rem;">
+    <div id="sidebar" style="width: 350px; min-width: 250px; background: #f8f9fa; border-radius: 8px; padding: 1rem; box-shadow: 0 0 8px #ccc; height: 600px; overflow-y: auto;">
+      <h4>Top Trending Movies by Region</h4>
+      <div id="region-list">Loading...</div>
+    </div>
+    <div style="flex: 1;">
+      <div id="map" style="height: 600px; background: #eee;">If you see this text, the map is not loading.</div>
+    </div>
+  </div>
+  <noscript><p style="color:red">JavaScript is required to view the map.</p></noscript>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const mapDiv = document.getElementById('map');
+      if (!mapDiv) return;
+      if (typeof L === 'undefined') {
+        mapDiv.innerHTML = '<span style="color:red">Leaflet library failed to load. Check your internet connection or browser console for errors.</span>';
+        return;
+      }
+      // Center on US
+      const map = L.map('map').setView([37.8, -96], 4);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+
+      fetch('{% url "movies.locations_geojson" %}')
+        .then(r => r.json())
+        .then(data => {
+          // Markers styled by purchase_count
+          const markers = L.geoJSON(data.features, {
+            pointToLayer: function(feature, latlng) {
+              const count = feature.properties.purchase_count || 1;
+              const color = count > 20 ? 'red' : count > 10 ? 'orange' : 'blue';
+              const radius = Math.max(8, Math.min(32, count * 2));
+              return L.circleMarker(latlng, {
+                radius: radius,
+                fillColor: color,
+                color: '#333',
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.7
+              });
+            },
+            onEachFeature: function(feature, layer) {
+              const p = feature.properties;
+              layer.bindPopup(`<strong>${p.movie_name}</strong><br>${p.name || p.place || ''}<br>Purchases: ${p.purchase_count}<br>Trend: ${p.trend_score}`);
+            }
+          }).addTo(map);
+          if (markers.getBounds().isValid()) {
+            map.fitBounds(markers.getBounds());
+          }
+          // Sidebar: top movies by region
+          const regionList = document.getElementById('region-list');
+          const top = data.top_movies_by_region;
+          let html = '';
+          for (const region in top) {
+            html += `<div style='margin-bottom:1em'><b>${region}</b><ul>`;
+            for (const entry of top[region]) {
+              html += `<li>${entry.movie} <span style='color:#888'>(Purchases: ${entry.purchase_count})</span></li>`;
+            }
+            html += '</ul></div>';
+          }
+          regionList.innerHTML = html || '<i>No trending data available.</i>';
+        })
+        .catch(err => {
+          mapDiv.innerHTML = '<span style="color:red">Failed to load movie locations.</span>';
+          document.getElementById('region-list').innerHTML = '<span style="color:red">Failed to load trending data.</span>';
+          console.error('Failed to load locations:', err);
+        });
+    });
+  </script>
+{% endblock %}

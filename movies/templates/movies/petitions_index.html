@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Movie Petitions</h2>
+<a href="{% url 'create_petitions' %}" class = "btn btn-primary mb-3">Create petition</a></p>
+<ul>
+  {% for petition in petitions %}
+    <li>
+        {{ petition.movie_name }} - Yes Votes: {{ petition.yes_votes }}
+        {% if user.is_authenticated %}
+             <a href="{% url 'petitions.vote' petition.id %}" class="btn btn-success btn-sm">Vote Yes</a>
+        {% endif %}
+    </li>
+  {% endfor %}
+</ul>
+{% endblock %}
