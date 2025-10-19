@@ -49,6 +49,7 @@ class Rating(models.Model):
         unique_together = ('movie', 'user')
         
     def __str__(self):
+<<<<<<< HEAD
         return f"{self.movie.name} - {self.user.username}: {self.value}"
 
 
@@ -72,3 +73,6 @@ class MovieLocation(models.Model):
 
     def __str__(self):
         return f"{self.movie.name} @ {self.name or self.place or f'{self.latitude},{self.longitude}'} ({self.trend_score})"
+=======
+        return f"{self.movie.name} - {self.user.username}: {self.value}"
+>>>>>>> dce5c916be57856df10ba24c833e7a7aec8c3f38
